@@ -172,25 +172,7 @@ module equations
                 statechunks(3:m+2, 1:2, 3, l) = v((i-1)*m+1:i*m, mod((j-1)*n-1+ydivs*n, ydivs*n):mod((j-1)*n-1+ydivs*n, ydivs*n)+1)
                 statechunks(3:m+2, n+3:n+4, 3, l) = v((i-1)*m+1:i*m, mod(j*n+1, ydivs*n):mod(j*n+2, ydivs*n))
             	
-            	
-            	
-                !statechunks(3:m+2, 3:n+2, 1, l) = h((i-1)*m+1:i*m, (j-1)*n+1:j*n)
-                !statechunks(1:2, 3:n+2, 1, l) = h(i*m-1:i*m, (j-1)*n+1:j*n)
-                !statechunks(m+3:m+4, 3:n+2, 1, l) = h((i-1)*m+1:(i-1)*m+2, (j-1)*n+1:j*n)
-                !statechunks(3:m+2, 1:2, 1, l) = h((i-1)*m+1:i*m, j*n-1:j*n)
-                !statechunks(3:m+2, n+3:n+4, 1, l) = h((i-1)*m+1:i*m, (j-1)*n+1:(j-1)*n+2)
-
-                !statechunks(3:m+2, 3:n+2, 2, l) = u((i-1)*m+1:i*m, (j-1)*n+1:j*n)
-                !statechunks(1:2, 3:n+2, 2, l) = u(i*m-1:i*m, (j-1)*n+1:j*n)
-                !statechunks(m+3:m+4, 3:n+2, 2, l) = u((i-1)*m+1:(i-1)*m+2, (j-1)*n+1:j*n)
-                !statechunks(3:m+2, 1:2, 2, l) = u((i-1)*m+1:i*m, j*n-1:j*n)
-                !statechunks(3:m+2, n+3:n+4, 2, l) = u((i-1)*m+1:i*m, (j-1)*n+1:(j-1)*n+2)
-
-                !statechunks(3:m+2, 3:n+2, 3, l) = v((i-1)*m+1:i*m, (j-1)*n+1:j*n)
-                !statechunks(1:2, 3:n+2, 3, l) = v(i*m-1:i*m, (j-1)*n+1:j*n)
-                !statechunks(m+3:m+4, 3:n+2, 3, l) = v((i-1)*m+1:(i-1)*m+2, (j-1)*n+1:j*n)
-                !statechunks(3:m+2, 1:2, 3, l) = v((i-1)*m+1:i*m, j*n-1:j*n)
-                !statechunks(3:m+2, n+3:n+4, 3, l) = v((i-1)*m+1:i*m, (j-1)*n+1:(j-1)*n+2)
+            
             end do
         end do    
                 !this way we'll need like 27 calculations in total to make each chunk for h, u, v...
