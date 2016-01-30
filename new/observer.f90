@@ -12,10 +12,11 @@ module observer
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 	use netcdf
 	use equations
+	implicit none
 
     private
     
-	character (len=*), parameter :: filename = 'solver_data.nc'   ! Name of NetCDF file to be created
+	character (len=*), parameter, public :: filename = 'shallow_water_data.nc'   ! Name of NetCDF file to be created
                  
     integer :: ierr, j=1      ! Return error code from NetCDF calls, track num of writes
     integer :: ncid       ! Handle to the NetCDF file

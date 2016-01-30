@@ -25,7 +25,7 @@ program ode_solver
 	allocate(state(system_size))
 	allocate(tendency(system_size))	
 	
-	call set_initial_state(state, wrock)
+	call set_initial_state(state)
 	
 	call observer_init()
 	

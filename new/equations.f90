@@ -3,13 +3,13 @@
 
 module equations
     
-    
+    implicit none    
     private
     integer :: i, j, im, ip, jm, jp 
     real :: dx = 100 ! dx and dy are required for the numerical differentiation I used to get the divergences/gradients
     real :: dy= 100 ! for arbitrary dx, step_size should be about 1/10-1/5 of dx to yield results that don't blow up. 
     
-    public :: get_system_size, set_initial_state, f
+    public :: get_system_size, set_initial_state, f_chunk, disassemble_state, reassemble_tend
     integer, parameter, public :: matSize = 100 !set the dimensions of the grid of fluid. Interestingly, it seg faults for 400+
     integer, public :: arrSize
     
@@ -83,13 +83,12 @@ module equations
         real, dimension(:,:), intent(in) :: h_chunk, u_chunk, v_chunk
         real, dimension(:,:), intent(out) :: dh_chunk, du_chunk, dv_chunk
         real :: divV, gradxh, gradyh
-        integer :: m, n
+        integer :: m, n, i, im, ip, im2, ip2, j, jm, jp, jm2, jp2
         integer, dimension(2) :: stuff 
         
         stuff = shape(dh_chunk)
         m = stuff(1)
         n = stuff(2)  
-        
         
         do i=3,m+2
             im = i-1 !since we do a 4-point central difference, need 4 values of i and j
@@ -103,7 +102,7 @@ module equations
                 jm2 = j-2
                 jp2 = j+2
                 
-                divV = (-u_chunk(ip2,j)+8*u_chunk(ip,j)-8*u_chunk(im,j)+u_chunk(im2,j))/(12*dx) + (-v_chunk(i,jp2)+8*v_chunk(i,jp)-8*v(i,jm)+v_chunk(i,jm2))/(12*dy)
+                divV = (-u_chunk(ip2,j)+8*u_chunk(ip,j)-8*u_chunk(im,j)+u_chunk(im2,j))/(12*dx) + (-v_chunk(i,jp2)+8*v_chunk(i,jp)-8*v_chunk(i,jm)+v_chunk(i,jm2))/(12*dy)
                 gradxh = (-h_chunk(ip2,j)+8*h_chunk(ip,j)-8*h_chunk(im,j)+h_chunk(im2,j))/(12*dx) !these three quantities are 4-point central finite difference.
                 gradyh = (-h_chunk(i,jp2)+8*h_chunk(i,jp)-8*h_chunk(i,jm)+h_chunk(i,jm2))/(12*dy)
                 dh_chunk(i-2,j-2) = -h_chunk(i,j)*divV
@@ -137,9 +136,9 @@ module equations
     subroutine disassemble_state(state, statechunks)
         implicit none
         real, dimension(:), intent(in) :: state
-        real, dimension(:,:,:,:), intent(inout) :: statechunks
+        real, dimension(:,:,:,:), intent(out) :: statechunks
         real, dimension(matsize, matsize) :: h, u, v
-        integer :: i, j, l, m, n, x, num_procs, xdivs, ydivs
+        integer :: i, j, p, q, l, m, n, x, num_procs, xdivs, ydivs
         integer, dimension(4) :: stuff
         stuff = shape(statechunks)
         m = stuff(1) - 4
@@ -154,27 +153,47 @@ module equations
         do j=1, ydivs
             do i=1, xdivs
                 l = l + 1
-                statechunks(3:m+2, 3:n+2, 1, l) = h((i-1)*m+1:i*m, (j-1)*n+1:j*n)
-                statechunks(1:2, 3:n+2, 1, l) = h(i*m-1:i*m, (j-1)*n+1:j*n)
-                statechunks(m+3:m+4, 3:n+2, 1, l) = h((i-1)*m+1:(i-1)*m+2, (j-1)*n+1:j*n)
-                statechunks(3:m+2, 1:2, 1, l) = h((i-1)*m+1:i*m, j*n-1:j*n)
-                statechunks(3:m+2, n+3:n+4, 1, l) = h((i-1)*m+1:i*m, (j-1)*n+1:(j-1)*n+2)
+            	
+            	statechunks(3:m+2, 3:n+2, 1, l) = h((i-1)*m+1:i*m, (j-1)*n+1:j*n)
+                statechunks(1:2, 3:n+2, 1, l) = h(mod((i-1)*m-1+xdivs*m, xdivs*m):mod((i-1)*m-1+xdivs*m, xdivs*m)+1, (j-1)*n+1:j*n)
+                statechunks(m+3:m+4, 3:n+2, 1, l) = h(mod(i*m+1, xdivs*m):mod(i*m+2, xdivs*m), (j-1)*n+1:j*n)
+                statechunks(3:m+2, 1:2, 1, l) = h((i-1)*m+1:i*m, mod((j-1)*n-1+ydivs*n, ydivs*n):mod((j-1)*n-1+ydivs*n, ydivs*n)+1)
+                statechunks(3:m+2, n+3:n+4, 1, l) = h((i-1)*m+1:i*m, mod(j*n+1, ydivs*n):mod(j*n+2, ydivs*n))
 
                 statechunks(3:m+2, 3:n+2, 2, l) = u((i-1)*m+1:i*m, (j-1)*n+1:j*n)
-                statechunks(1:2, 3:n+2, 2, l) = u(i*m-1:i*m, (j-1)*n+1:j*n)
-                statechunks(m+3:m+4, 3:n+2, 2, l) = u((i-1)*m+1:(i-1)*m+2, (j-1)*n+1:j*n)
-                statechunks(3:m+2, 1:2, 2, l) = u((i-1)*m+1:i*m, j*n-1:j*n)
-                statechunks(3:m+2, n+3:n+4, 2, l) = u((i-1)*m+1:i*m, (j-1)*n+1:(j-1)*n+2)
-
+                statechunks(1:2, 3:n+2, 2, l) = u(mod((i-1)*m-1+xdivs*m, xdivs*m):mod((i-1)*m-1+xdivs*m, xdivs*m)+1, (j-1)*n+1:j*n)
+                statechunks(m+3:m+4, 3:n+2, 2, l) = u(mod(i*m+1, xdivs*m):mod(i*m+2, xdivs*m), (j-1)*n+1:j*n)
+                statechunks(3:m+2, 1:2, 2, l) = u((i-1)*m+1:i*m, mod((j-1)*n-1+ydivs*n, ydivs*n):mod((j-1)*n-1+ydivs*n, ydivs*n)+1)
+                statechunks(3:m+2, n+3:n+4, 2, l) = u((i-1)*m+1:i*m, mod(j*n+1, ydivs*n):mod(j*n+2, ydivs*n))
+                
                 statechunks(3:m+2, 3:n+2, 3, l) = v((i-1)*m+1:i*m, (j-1)*n+1:j*n)
-                statechunks(1:2, 3:n+2, 3, l) = v(i*m-1:i*m, (j-1)*n+1:j*n)
-                statechunks(m+3:m+4, 3:n+2, 3, l) = v((i-1)*m+1:(i-1)*m+2, (j-1)*n+1:j*n)
-                statechunks(3:m+2, 1:2, 3, l) = v((i-1)*m+1:i*m, j*n-1:j*n)
-                statechunks(3:m+2, n+3:n+4, 3, l) = v((i-1)*m+1:i*m, (j-1)*n+1:(j-1)*n+2)
+                statechunks(1:2, 3:n+2, 3, l) = v(mod((i-1)*m-1+xdivs*m, xdivs*m):mod((i-1)*m-1+xdivs*m, xdivs*m)+1, (j-1)*n+1:j*n)
+                statechunks(m+3:m+4, 3:n+2, 3, l) = v(mod(i*m+1, xdivs*m):mod(i*m+2, xdivs*m), (j-1)*n+1:j*n)
+                statechunks(3:m+2, 1:2, 3, l) = v((i-1)*m+1:i*m, mod((j-1)*n-1+ydivs*n, ydivs*n):mod((j-1)*n-1+ydivs*n, ydivs*n)+1)
+                statechunks(3:m+2, n+3:n+4, 3, l) = v((i-1)*m+1:i*m, mod(j*n+1, ydivs*n):mod(j*n+2, ydivs*n))
+            	
+            	
+            	
+                !statechunks(3:m+2, 3:n+2, 1, l) = h((i-1)*m+1:i*m, (j-1)*n+1:j*n)
+                !statechunks(1:2, 3:n+2, 1, l) = h(i*m-1:i*m, (j-1)*n+1:j*n)
+                !statechunks(m+3:m+4, 3:n+2, 1, l) = h((i-1)*m+1:(i-1)*m+2, (j-1)*n+1:j*n)
+                !statechunks(3:m+2, 1:2, 1, l) = h((i-1)*m+1:i*m, j*n-1:j*n)
+                !statechunks(3:m+2, n+3:n+4, 1, l) = h((i-1)*m+1:i*m, (j-1)*n+1:(j-1)*n+2)
+
+                !statechunks(3:m+2, 3:n+2, 2, l) = u((i-1)*m+1:i*m, (j-1)*n+1:j*n)
+                !statechunks(1:2, 3:n+2, 2, l) = u(i*m-1:i*m, (j-1)*n+1:j*n)
+                !statechunks(m+3:m+4, 3:n+2, 2, l) = u((i-1)*m+1:(i-1)*m+2, (j-1)*n+1:j*n)
+                !statechunks(3:m+2, 1:2, 2, l) = u((i-1)*m+1:i*m, j*n-1:j*n)
+                !statechunks(3:m+2, n+3:n+4, 2, l) = u((i-1)*m+1:i*m, (j-1)*n+1:(j-1)*n+2)
+
+                !statechunks(3:m+2, 3:n+2, 3, l) = v((i-1)*m+1:i*m, (j-1)*n+1:j*n)
+                !statechunks(1:2, 3:n+2, 3, l) = v(i*m-1:i*m, (j-1)*n+1:j*n)
+                !statechunks(m+3:m+4, 3:n+2, 3, l) = v((i-1)*m+1:(i-1)*m+2, (j-1)*n+1:j*n)
+                !statechunks(3:m+2, 1:2, 3, l) = v((i-1)*m+1:i*m, j*n-1:j*n)
+                !statechunks(3:m+2, n+3:n+4, 3, l) = v((i-1)*m+1:i*m, (j-1)*n+1:(j-1)*n+2)
             end do
         end do    
                 !this way we'll need like 27 calculations in total to make each chunk for h, u, v...
-        
     
     end subroutine disassemble_state
     
@@ -193,7 +212,7 @@ module equations
     subroutine reassemble_tend(tendchunks, tendency)
         implicit none
         real, dimension(:,:,:,:), intent(in) :: tendchunks
-        real, dimension(:), intent(inout) :: tendency
+        real, dimension(:), intent(out) :: tendency
         real, dimension(matSize, matSize) :: h, u, v
         integer :: i, j, k, m, n, x, num_procs, xdivs, ydivs
         integer, dimension(4) :: stuff
