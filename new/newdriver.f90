@@ -11,9 +11,9 @@ program ode_solver
     real, dimension(:), allocatable :: state, tendency, q1, q2, q3, q4
     real, dimension(:,:,:,:), allocatable :: statechunks, tendchunks, qchunks
     real, dimension(:,:,:), allocatable :: s_chunk, tend_chunk
-    integer :: num, system_size, i, j, my_id, ierr, num_procs, m, n
+    integer :: num, system_size, i, j, m, n
     integer, dimension(MPI_STATUS_SIZE) :: status
-    real :: dt, time=0
+    real :: time=0
     call mpi_init(ierr)
     call mpi_comm_rank(MPI_COMM_WORLD, my_id, ierr)
     call mpi_comm_size(MPI_COMM_WORLD, num_procs, ierr)
@@ -76,8 +76,8 @@ program ode_solver
     
     do i=1, num
     
-        call calculate_RK4(s_chunk)
-        call observer_write_chunk(tend_chunk, my_id)
+        call calculate_RK4(s_chunk, tend_chunk)
+        call observer_write_chunk(s_chunk(3:m+2, 3:n+2, my_id)
         time = time + dt
         
     end do

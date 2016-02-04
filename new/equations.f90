@@ -11,7 +11,8 @@ module equations
     
     public :: get_system_size, set_initial_state, f_chunk, disassemble_state, reassemble_tend
     integer, parameter, public :: matSize = 100 !set the dimensions of the grid of fluid. Interestingly, it seg faults for 400+
-    integer, public :: arrSize
+    integer, public :: arrSize, my_id, num_procs, ierr
+    real, public :: dt
     
     
     contains
@@ -32,9 +33,9 @@ module equations
     
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     
-    subroutine calculate_RK4(s_chunk)
+    subroutine calculate_RK4(s_chunk, tend_chunk)
 		implicit none
-		real, dimension(:,:,:), intent(in) :: s_chunk !(m+4)x(n+4)x3
+		real, dimension(:,:,:), intent(inout) :: s_chunk !(m+4)x(n+4)x3
 		real, dimension(:,:,:), intent(inout) :: tend_chunk !mxnx3, always h:u:v
 		real, dimension(:,:,:), allocatable :: qchunk1, qchunk2, qchunk3, qchunk4
 		integer, dimension(3) :: stuff 
