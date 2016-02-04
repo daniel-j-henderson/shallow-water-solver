@@ -11,7 +11,7 @@ program ode_solver
     real, dimension(:), allocatable :: state, tendency, q1, q2, q3, q4
     real, dimension(:,:,:,:), allocatable :: statechunks, tendchunks, qchunks
     real, dimension(:,:,:), allocatable :: s_chunk, tend_chunk
-    integer :: num, system_size, i, j, m, n
+    integer :: num, system_size, i, j, m, n, xnum, ynum, ix, jy
     integer, dimension(MPI_STATUS_SIZE) :: status
     real :: time=0
     call mpi_init(ierr)
@@ -73,11 +73,15 @@ program ode_solver
     	call mpi_recv(s_chunk(:,:,:), (n+4)*(m+4)*3, MPI_REAL, 0, 1, MPI_COMM_WORLD, status, ierr)
     end if
     
+    xnum = matSize / m
+    ynum = matSize / n
+    ix = mod(my_id, xnum)
+    jy = floor(my_id / xnum)
     
     do i=1, num
     
         call calculate_RK4(s_chunk, tend_chunk)
-        call observer_write_chunk(s_chunk(3:m+2, 3:n+2, :), my_id)
+        call observer_write_chunk(s_chunk(3:m+2, 3:n+2, :), ix, jy)
         time = time + dt
         
     end do

@@ -191,13 +191,45 @@ module observer
     ! Output: none
     !
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    subroutine observer_write_chunk(s, id)
+    subroutine observer_write_chunk(s, i, j)
     	
     	implicit none
         real, dimension(:,:,:), intent(in) :: s
-        integer, intent(in) :: id
-    	integer :: ierr
-    	print *, 'observer_write_chunk'
+        integer, intent(in) :: i, j
+    	integer :: ierr, m, n
+    	integer, dimension(3) :: stuff
+    	stuff = shape(s)
+    	m = stuff(1)
+    	n = stuff(2)
+		
+		ierr = nf90_put_var(ncid, hvarID, s(:,:,1), (/i*m+1, i*n+1, cnt/), (/m, n, 1/))
+	    if (ierr /= NF90_NOERR) then
+ 	       write(0,*) '*********************************************************************************'
+ 	       write(0,*) 'Error putting h-chunk in file '//filename
+ 	       write(0,*) 'ierr = ', ierr
+   	       write(0,*) '*********************************************************************************'
+           stop
+        end if
+
+        ierr = nf90_put_var(ncid, uvarID, s(:,:,2), (/i*m+1, i*n+1, cnt/), (/m, n, 1/))
+	    if (ierr /= NF90_NOERR) then
+ 	       write(0,*) '*********************************************************************************'
+ 	       write(0,*) 'Error putting u-chunk in file '//filename
+ 	       write(0,*) 'ierr = ', ierr
+   	       write(0,*) '*********************************************************************************'
+           stop
+        end if
+        
+        ierr = nf90_put_var(ncid, vvarID, s(:,:,3), (/i*m+1, i*n+1, cnt/), (/m, n, 1/))
+	    if (ierr /= NF90_NOERR) then
+ 	       write(0,*) '*********************************************************************************'
+ 	       write(0,*) 'Error putting v-chunk in file '//filename
+ 	       write(0,*) 'ierr = ', ierr
+   	       write(0,*) '*********************************************************************************'
+           stop
+        end if
+        
+        cnt=cnt+1
     
     end subroutine observer_write_chunk
 
