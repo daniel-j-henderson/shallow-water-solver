@@ -90,7 +90,7 @@ module equations
         call mpi_wait(request3, status, ierr)
         call mpi_wait(request4, status, ierr)
         
-        call f_chunk(qchunk2, tend_chunk)
+        call f_chunk(qchunk2(:,:,1), qchunk2(:,:,2), qchunk2(:,:,3), tend_chunk(:,:,1), tend_chunk(:,:,2), tend_chunk(:,:,3))
         !send tend_chunk halo bits
         !receive halo bits into qchunk2
         dest = mod(my_id + height, num_procs) !send top halo
@@ -126,7 +126,7 @@ module equations
         call mpi_wait(request3, status, ierr)
         call mpi_wait(request4, status, ierr)
         
-        call f_chunk(qchunk3, tend_chunk)
+        call f_chunk(qchunk3(:,:,1), qchunk3(:,:,2), qchunk3(:,:,3), tend_chunk(:,:,1), tend_chunk(:,:,2), tend_chunk(:,:,3))
 		!send tend_chunk halo bits
         !receive halo bits into qchunk2
         dest = mod(my_id + height, num_procs) !send top halo
@@ -162,7 +162,7 @@ module equations
         call mpi_wait(request3, status, ierr)
         call mpi_wait(request4, status, ierr)
         
-        call f_chunk(qchunk4, tend_chunk)
+        call f_chunk(qchunk4(:,:,1), qchunk4(:,:,2), qchunk4(:,:,3), tend_chunk(:,:,1), tend_chunk(:,:,2), tend_chunk(:,:,3))
         !send tend_chunk halo bits
         !receive halo bits into qchunk2
         dest = mod(my_id + height, num_procs) !send top halo
