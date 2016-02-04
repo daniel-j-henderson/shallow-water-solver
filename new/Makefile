@@ -4,8 +4,8 @@ LDFLAGS =
 
 all: solver_parallel
 
-solver_parallel: equations.o observer.o driver.o
-	$(FC) $(LDFLAGS) equations.o observer.o driver.o -o solver_parallel -I${NETCDF}/include -L${NETCDF}/lib -lnetcdf 
+solver_parallel: equations.o observer.o newdriver.o
+	$(FC) $(LDFLAGS) equations.o observer.o newdriver.o -o solver_parallel -I${NETCDF}/include -L${NETCDF}/lib -lnetcdf 
 
 equations.o: equations.f90
 	$(FC) $(FFLAGS) -c equations.f90
@@ -13,7 +13,7 @@ equations.o: equations.f90
 observer.o: observer.f90
 	$(FC) $(FFLAGS) -c observer.f90 -I$(NETCDF)/include
 	
-driver.o: newdriver.f90 observer.f90 equations.f90
+newdriver.o: newdriver.f90 observer.f90 equations.f90
 	$(FC) $(FFLAGS) -c newdriver.f90 
 
 clean:

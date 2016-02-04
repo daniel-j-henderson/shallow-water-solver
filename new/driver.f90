@@ -38,12 +38,13 @@ program ode_solver
     end if
     
     if (my_id == 0) then
-        print *, "How many steps through time?"
-        read(*,*) num
+   !     print *, "How many steps through time?"
+   !    read(*,*) num
     
-        print *, "How big is the step size?"
-        read(*,*) dt
-    
+   !     print *, "How big is the step size?"
+   !     read(*,*) dt
+   num = 1000
+   dt = 10 
         system_size = get_system_size()
         write (*,*) 'The system size is:', system_size
         allocate(state(system_size), tendency(system_size))   

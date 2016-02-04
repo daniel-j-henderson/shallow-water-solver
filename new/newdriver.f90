@@ -77,7 +77,7 @@ program ode_solver
     do i=1, num
     
         call calculate_RK4(s_chunk, tend_chunk)
-        call observer_write_chunk(s_chunk(3:m+2, 3:n+2, my_id)
+        call observer_write_chunk(s_chunk(3:m+2, 3:n+2, :), my_id)
         time = time + dt
         
     end do

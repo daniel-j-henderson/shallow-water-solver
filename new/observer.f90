@@ -18,12 +18,12 @@ module observer
     
 	character (len=*), parameter, public :: filename = 'shallow_water_data.nc'   ! Name of NetCDF file to be created
                  
-    integer :: ierr, j=1      ! Return error code from NetCDF calls, track num of writes
+    integer, private :: cnt=1      ! Return error code from NetCDF calls, track num of writes
     integer :: ncid       ! Handle to the NetCDF file
     integer :: xdimID, ydimID, tdimID    ! ID of the time and space dimensions
     integer :: hvarID, uvarID, vvarID    ! IDs of the spatial and velocity variables
 
-    public :: observer_init, observer_write, observer_finalize   
+    public :: observer_init, observer_write, observer_finalize, observer_write_chunk   
 
 
     contains
@@ -45,7 +45,7 @@ module observer
     subroutine observer_init()
 
         implicit none
-
+        integer :: ierr
         ierr = nf90_create(filename, NF90_CLOBBER, ncid)
     	if (ierr /= NF90_NOERR) then
         	write(0,*) '*********************************************************************************'
@@ -139,15 +139,15 @@ module observer
     	!use netcdf
 		
         implicit none
-
         real, dimension(:), intent(in) :: s
 		real, dimension(matSize,matSize) :: h, u, v
+        integer :: ierr
 		h = reshape(s(1:arrSize), (/matSize, matSize/))
 		u = reshape(s(arrSize+1:2*arrSize), (/matSize, matSize/))
 		v = reshape(s(2*arrSize+1:3*arrSize), (/matSize, matSize/))
 
 		
-		ierr = nf90_put_var(ncid, hvarID, h, (/1, 1, j/), (/matSize, matSize, 1/))
+		ierr = nf90_put_var(ncid, hvarID, h, (/1, 1, cnt/), (/matSize, matSize, 1/))
 	    if (ierr /= NF90_NOERR) then
  	       write(0,*) '*********************************************************************************'
  	       write(0,*) 'Error putting h in file '//filename
@@ -156,7 +156,7 @@ module observer
            stop
         end if
 
-        ierr = nf90_put_var(ncid, uvarID, u, (/1, 1, j/), (/matSize, matSize, 1/))
+        ierr = nf90_put_var(ncid, uvarID, u, (/1, 1, cnt/), (/matSize, matSize, 1/))
 	    if (ierr /= NF90_NOERR) then
  	       write(0,*) '*********************************************************************************'
  	       write(0,*) 'Error putting u in file '//filename
@@ -165,7 +165,7 @@ module observer
            stop
         end if
         
-        ierr = nf90_put_var(ncid, vvarID, v, (/1, 1, j/), (/matSize, matSize, 1/))
+        ierr = nf90_put_var(ncid, vvarID, v, (/1, 1, cnt/), (/matSize, matSize, 1/))
 	    if (ierr /= NF90_NOERR) then
  	       write(0,*) '*********************************************************************************'
  	       write(0,*) 'Error putting v in file '//filename
@@ -174,7 +174,7 @@ module observer
            stop
         end if
         
-        j=j+1 ! j keeps track of the next spot in each variable to write to
+        cnt=cnt+1 ! j keeps track of the next spot in each variable to write to
 
     end subroutine observer_write
     
@@ -191,10 +191,12 @@ module observer
     ! Output: none
     !
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    subroutine observer_write_chunk(s)
+    subroutine observer_write_chunk(s, id)
     	
     	implicit none
-    	
+        real, dimension(:,:,:), intent(in) :: s
+        integer, intent(in) :: id
+    	integer :: ierr
     	print *, 'observer_write_chunk'
     
     end subroutine observer_write_chunk
@@ -216,7 +218,7 @@ module observer
     subroutine observer_finalize()
 
         implicit none
-
+        integer :: ierr
     ierr = nf90_close(ncid)
     if (ierr /= NF90_NOERR) then
         write(0,*) '*********************************************************************************'
