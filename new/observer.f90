@@ -177,6 +177,27 @@ module observer
         j=j+1 ! j keeps track of the next spot in each variable to write to
 
     end subroutine observer_write
+    
+    
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    !
+    ! Name: observer_write_chunk
+    !
+    ! Description: Formats and writes the contents of the state chunk s
+    !   to a file.
+    !
+    ! Input: s -- the state chunk
+    !
+    ! Output: none
+    !
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    subroutine observer_write_chunk(s)
+    	
+    	implicit none
+    	
+    	print *, 'observer_write_chunk'
+    
+    end subroutine observer_write_chunk
 
 
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
