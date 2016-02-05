@@ -90,13 +90,13 @@ program ode_solver
         time = time + dt
         
     end do
-    
+    print *, 'FINALLY FINISHED'
     if (my_id == 0) then
     
         call observer_finalize()
     
-        deallocate(state)
-        deallocate(tendency)
+        !deallocate(state)
+        !deallocate(tendency)
     	!deallocate more things
         write (*,*), 'A netCDF file called', filename, 'has been created for shallow water model over ', time, 'time'
     else

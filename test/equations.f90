@@ -40,54 +40,66 @@ module equations
 		real, dimension(:,:,:), intent(inout) :: s_chunk !(m+4)x(n+4)x3
 		real, dimension(:,:,:), intent(inout) :: tend_chunk !mxnx3, always h:u:v
 		real, dimension(:,:,:), allocatable :: qchunk1, qchunk2, qchunk3, qchunk4
+		real, dimension(:,:,:), allocatable :: tmp1, tmp2
 		integer, dimension(3) :: stuff 
 		integer :: m, n, dest, source, width, height
 		integer :: request1, request2, request3, request4
-		integer :: status
+		integer(kind=8) :: status
         count = count + 1
         stuff = shape(s_chunk)
         m = stuff(1)
         n = stuff(2)
-        
+        write (*,*) 'orig m=',m, 'n=',n
         allocate(qchunk1(m, n, 3), qchunk2(m, n, 3), qchunk3(m, n, 3), qchunk4(m, n, 3))
         m = m-4
         n = n-4
+        allocate(tmp1(m, 2, 3), tmp2(2, n, 3))
+        write (*,*) 'm=',m, 'n=',n
         width = matSize / m
         height = matSize / n
         call f_chunk(s_chunk(:,:,1), s_chunk(:,:,2), s_chunk(:,:,3), tend_chunk(:,:,1), tend_chunk(:,:,2), tend_chunk(:,:,3))
         write (*,*) 'count = ',count
         dest = mod(my_id, width) + mod((my_id/width + 1), height)*width !send top halo
         write(*,*) my_id, 'sending top halo to',dest
-        call mpi_isend(tend_chunk(1:m, n-1:n, :), 2*m, MPI_REAL, dest, 1, MPI_COMM_WORLD, request1, ierr)
+        call mpi_isend(tend_chunk(1:m, n-1:n, :), 2*m*3, MPI_REAL, dest, 1, MPI_COMM_WORLD, request1, ierr)
         
         dest = mod(my_id, width) + mod((my_id/width - 1) + height, height)*width !send bottom halo
         write(*,*) my_id, 'sending bottom halo to',dest
-        call mpi_isend(tend_chunk(1:m, 1:2, :), 2*m, MPI_REAL, dest, 2, MPI_COMM_WORLD, request2, ierr)
+        call mpi_isend(tend_chunk(1:m, 1:2, :), 2*m*3, MPI_REAL, dest, 2, MPI_COMM_WORLD, request2, ierr)
         
         dest = mod(my_id-1 + width, width) + (my_id/width)*width !send left halo
         write(*,*) my_id, 'sending left halo to',dest
-        call mpi_isend(tend_chunk(1:2, 1:n, :), 2*n, MPI_REAL, dest, 3, MPI_COMM_WORLD, request3, ierr)
+        call mpi_isend(tend_chunk(1:2, 1:n, :), 2*n*3, MPI_REAL, dest, 3, MPI_COMM_WORLD, request3, ierr)
         
         dest = mod(my_id+1, width) + (my_id/width)*width !send right halo
         write(*,*) my_id, 'sending right halo to',dest
-        call mpi_isend(tend_chunk(m-1:m, 1:n, :), 2*n, MPI_REAL, dest, 4, MPI_COMM_WORLD, request4, ierr)
+        call mpi_isend(tend_chunk(m-1:m, 1:n, :), 2*n*3, MPI_REAL, dest, 4, MPI_COMM_WORLD, request4, ierr)
         
-        !recv top halo
+        !recv top halo 
+        
         source = mod(my_id, width) + mod((my_id/width + 1), height)*width
         write(*,*) my_id, 'receiving top halo from',source
-        call mpi_recv(qchunk1(3:m+2, n+3:n+4, :), 2*m, MPI_REAL, source, 1, MPI_COMM_WORLD, status, ierr)
-        !recv bottom halo
+        call mpi_recv(tmp1, 2*m*3, MPI_REAL, source, 2, MPI_COMM_WORLD, status, ierr)
+        qchunk1(3:m+2, n+3:n+4, :) = tmp1
+        !recv bottom halo 
         source = mod(my_id, width) + mod((my_id/width - 1) + height, height)*width
         write(*,*) my_id, 'receiving bottom halo from',source
-        call mpi_recv(qchunk1(3:m+2, 1:2, :), 2*m, MPI_REAL, source, 2, MPI_COMM_WORLD, status, ierr)
-        !recv left halo
+        call mpi_recv(tmp1, 2*m*3, MPI_REAL, source, 1, MPI_COMM_WORLD, status, ierr)
+        qchunk1(3:m+2, 1:2, :) = tmp1
+        !recv left halo 
         source = mod(my_id-1 + width, width) + (my_id/width)*width
         write(*,*) my_id, 'receiving left halo from',source
-        call mpi_recv(qchunk1(1:2, 3:n+2, :), 2*n, MPI_REAL, source, 3, MPI_COMM_WORLD, status, ierr)
-        !recv right halo
+        call mpi_recv(tmp2, 300, MPI_REAL, source, 4, MPI_COMM_WORLD, status, ierr)
+        qchunk1(1:2, 3:n+2, :) = tmp2
+        !recv right halo 
         source = mod(my_id+1, width) + (my_id/width)*width
         write(*,*) my_id, 'receiving right halo from',source
-        call mpi_recv(qchunk1(m+3:m+4, 3:n+2, :), 2*n, MPI_REAL, source, 4, MPI_COMM_WORLD, status, ierr)
+        call mpi_recv(tmp2, 300, MPI_REAL, source, 3, MPI_COMM_WORLD, status, ierr)
+        qchunk1(m+3:m+4, 3:n+2, :) = tmp2
+        call mpi_wait(request1, status, ierr)
+        call mpi_wait(request2, status, ierr)
+        call mpi_wait(request3, status, ierr)
+        call mpi_wait(request4, status, ierr)
         print *, 'A'
         !send tend_chunk halo bits
         !receive halo bits into qchunk1
@@ -95,121 +107,131 @@ module equations
         qchunk1 = qchunk1*dt
         qchunk2 = .5 * qchunk1 + s_chunk
         !ensure tend_chunks has been received
-        call mpi_wait(request1, status, ierr)
-        call mpi_wait(request2, status, ierr)
-        call mpi_wait(request3, status, ierr)
-        call mpi_wait(request4, status, ierr)
+        
         print *, 'B'
         call f_chunk(qchunk2(:,:,1), qchunk2(:,:,2), qchunk2(:,:,3), tend_chunk(:,:,1), tend_chunk(:,:,2), tend_chunk(:,:,3))
         !send tend_chunk halo bits
         !receive halo bits into qchunk2
         dest = mod(my_id, width) + mod((my_id/width + 1), height)*width !send top halo
-        call mpi_isend(tend_chunk(1:m, n-1:n, :), 2*m, MPI_REAL, dest, 1, MPI_COMM_WORLD, request1, ierr)
+        call mpi_isend(tend_chunk(1:m, n-1:n, :), 2*m*3, MPI_REAL, dest, 1, MPI_COMM_WORLD, request1, ierr)
         
         dest = mod(my_id, width) + mod((my_id/width - 1) + height, height)*width !send bottom halo
-        call mpi_isend(tend_chunk(1:m, 1:2, :), 2*m, MPI_REAL, dest, 2, MPI_COMM_WORLD, request2, ierr)
+        call mpi_isend(tend_chunk(1:m, 1:2, :), 2*m*3, MPI_REAL, dest, 2, MPI_COMM_WORLD, request2, ierr)
         
         dest = mod(my_id-1 + width, width) + (my_id/width)*width !send left halo
-        call mpi_isend(tend_chunk(1:2, 1:n, :), 2*n, MPI_REAL, dest, 3, MPI_COMM_WORLD, request3, ierr)
+        call mpi_isend(tend_chunk(1:2, 1:n, :), 2*n*3, MPI_REAL, dest, 3, MPI_COMM_WORLD, request3, ierr)
         
         dest = mod(my_id+1, width) + (my_id/width)*width !send right halo
-        call mpi_isend(tend_chunk(m-1:m, 1:n, :), 2*n, MPI_REAL, dest, 4, MPI_COMM_WORLD, request4, ierr)
+        call mpi_isend(tend_chunk(m-1:m, 1:n, :), 2*n*3, MPI_REAL, dest, 4, MPI_COMM_WORLD, request4, ierr)
         
         !recv top halo
         source = mod(my_id, width) + mod((my_id/width + 1), height)*width
-        call mpi_recv(qchunk2(3:m+2, n+3:n+4, :), 2*m, MPI_REAL, source, 1, MPI_COMM_WORLD, status, ierr)
+        call mpi_recv(tmp1, 2*m*3, MPI_REAL, source, 1, MPI_COMM_WORLD, status, ierr)
+        qchunk2(3:m+2, n+3:n+4, :) = tmp1
         !recv bottom halo
         source = mod(my_id, width) + mod((my_id/width - 1) + height, height)*width
-        call mpi_recv(qchunk2(3:m+2, 1:2, :), 2*m, MPI_REAL, source, 2, MPI_COMM_WORLD, status, ierr)
+        call mpi_recv(tmp1, 2*m*3, MPI_REAL, source, 2, MPI_COMM_WORLD, status, ierr)
+        qchunk2(3:m+2, 1:2, :) = tmp1
         !recv left halo
         source = mod(my_id-1 + width, width) + (my_id/width)*width
-        call mpi_recv(qchunk2(1:2, 3:n+2, :), 2*n, MPI_REAL, source, 3, MPI_COMM_WORLD, status, ierr)
+        call mpi_recv(tmp2, 2*n*3, MPI_REAL, source, 3, MPI_COMM_WORLD, status, ierr)
+        qchunk2(1:2, 3:n+2, :) = tmp2
         !recv right halo
         source = mod(my_id+1, width) + (my_id/width)*width
-        call mpi_recv(qchunk2(m+3:m+4, 3:n+2, :), 2*n, MPI_REAL, source, 4, MPI_COMM_WORLD, status, ierr)
-        
-        qchunk2(3:m+2, 3:n+2, :) = tend_chunk(:,:,:)
-        qchunk2 = qchunk2*dt
-        qchunk3 = qchunk2 * .5 + s_chunk
+        call mpi_recv(tmp2, 2*n*3, MPI_REAL, source, 4, MPI_COMM_WORLD, status, ierr)
+        qchunk2(m+3:m+4, 3:n+2, :) = tmp2
         call mpi_wait(request1, status, ierr)
         call mpi_wait(request2, status, ierr)
         call mpi_wait(request3, status, ierr)
         call mpi_wait(request4, status, ierr)
+        qchunk2(3:m+2, 3:n+2, :) = tend_chunk(:,:,:)
+        qchunk2 = qchunk2*dt
+        qchunk3 = qchunk2 * .5 + s_chunk
+        
         
         call f_chunk(qchunk3(:,:,1), qchunk3(:,:,2), qchunk3(:,:,3), tend_chunk(:,:,1), tend_chunk(:,:,2), tend_chunk(:,:,3))
 		!send tend_chunk halo bits
         !receive halo bits into qchunk2
         dest = mod(my_id, width) + mod((my_id/width + 1), height)*width !send top halo
-        call mpi_isend(tend_chunk(1:m, n-1:n, :), 2*m, MPI_REAL, dest, 1, MPI_COMM_WORLD, request1, ierr)
+        call mpi_isend(tend_chunk(1:m, n-1:n, :), 2*m*3, MPI_REAL, dest, 1, MPI_COMM_WORLD, request1, ierr)
         
         dest = mod(my_id, width) + mod((my_id/width - 1) + height, height)*width !send bottom halo
-        call mpi_isend(tend_chunk(1:m, 1:2, :), 2*m, MPI_REAL, dest, 2, MPI_COMM_WORLD, request2, ierr)
+        call mpi_isend(tend_chunk(1:m, 1:2, :), 2*m*3, MPI_REAL, dest, 2, MPI_COMM_WORLD, request2, ierr)
         
         dest = mod(my_id-1 + width, width) + (my_id/width)*width !send left halo
-        call mpi_isend(tend_chunk(1:2, 1:n, :), 2*n, MPI_REAL, dest, 3, MPI_COMM_WORLD, request3, ierr)
+        call mpi_isend(tend_chunk(1:2, 1:n, :), 2*n*3, MPI_REAL, dest, 3, MPI_COMM_WORLD, request3, ierr)
         
         dest = mod(my_id+1, width) + (my_id/width)*width !send right halo
-        call mpi_isend(tend_chunk(m-1:m, 1:n, :), 2*n, MPI_REAL, dest, 4, MPI_COMM_WORLD, request4, ierr)
+        call mpi_isend(tend_chunk(m-1:m, 1:n, :), 2*n*3, MPI_REAL, dest, 4, MPI_COMM_WORLD, request4, ierr)
         
         !recv top halo
         source = mod(my_id, width) + mod((my_id/width + 1), height)*width
-        call mpi_recv(qchunk3(3:m+2, n+3:n+4, :), 2*m, MPI_REAL, source, 1, MPI_COMM_WORLD, status, ierr)
+        call mpi_recv(tmp1, 2*m*3, MPI_REAL, source, 1, MPI_COMM_WORLD, status, ierr)
+        qchunk3(3:m+2, n+3:n+4, :) = tmp1
         !recv bottom halo
         source = mod(my_id, width) + mod((my_id/width - 1) + height, height)*width
-        call mpi_recv(qchunk3(3:m+2, 1:2, :), 2*m, MPI_REAL, source, 2, MPI_COMM_WORLD, status, ierr)
+        call mpi_recv(tmp1, 2*m*3, MPI_REAL, source, 2, MPI_COMM_WORLD, status, ierr)
+        qchunk3(3:m+2, 1:2, :) = tmp1
         !recv left halo
         source = mod(my_id-1 + width, width) + (my_id/width)*width
-        call mpi_recv(qchunk3(1:2, 3:n+2, :), 2*n, MPI_REAL, source, 3, MPI_COMM_WORLD, status, ierr)
+        call mpi_recv(tmp2, 2*n*3, MPI_REAL, source, 3, MPI_COMM_WORLD, status, ierr)
+        qchunk3(1:2, 3:n+2, :) = tmp2
         !recv right halo
         source = mod(my_id+1, width) + (my_id/width)*width
-        call mpi_recv(qchunk3(m+3:m+4, 3:n+2, :), 2*n, MPI_REAL, source, 4, MPI_COMM_WORLD, status, ierr)
-        
-        qchunk3(3:m+2, 3:n+2, :) = tend_chunk(:,:,:)
-        qchunk3 = qchunk3*dt
-        qchunk4 = qchunk3 + s_chunk
+        call mpi_recv(tmp2, 2*n*3, MPI_REAL, source, 4, MPI_COMM_WORLD, status, ierr)
+        qchunk3(m+3:m+4, 3:n+2, :) = tmp2
         call mpi_wait(request1, status, ierr)
         call mpi_wait(request2, status, ierr)
         call mpi_wait(request3, status, ierr)
         call mpi_wait(request4, status, ierr)
+        qchunk3(3:m+2, 3:n+2, :) = tend_chunk(:,:,:)
+        qchunk3 = qchunk3*dt
+        qchunk4 = qchunk3 + s_chunk
+        
         
         call f_chunk(qchunk4(:,:,1), qchunk4(:,:,2), qchunk4(:,:,3), tend_chunk(:,:,1), tend_chunk(:,:,2), tend_chunk(:,:,3))
         !send tend_chunk halo bits
         !receive halo bits into qchunk2
         dest = mod(my_id, width) + mod((my_id/width + 1), height)*width!send top halo
-        call mpi_isend(tend_chunk(1:m, n-1:n, :), 2*m, MPI_REAL, dest, 1, MPI_COMM_WORLD, request1, ierr)
+        call mpi_isend(tend_chunk(1:m, n-1:n, :), 2*m*3, MPI_REAL, dest, 1, MPI_COMM_WORLD, request1, ierr)
         
         dest = mod(my_id, width) + mod((my_id/width - 1) + height, height)*width !send bottom halo
-        call mpi_isend(tend_chunk(1:m, 1:2, :), 2*m, MPI_REAL, dest, 2, MPI_COMM_WORLD, request2, ierr)
+        call mpi_isend(tend_chunk(1:m, 1:2, :), 2*m*3, MPI_REAL, dest, 2, MPI_COMM_WORLD, request2, ierr)
         
         dest = mod(my_id-1 + width, width) + (my_id/width)*width !send left halo
-        call mpi_isend(tend_chunk(1:2, 1:n, :), 2*n, MPI_REAL, dest, 3, MPI_COMM_WORLD, request3, ierr)
+        call mpi_isend(tend_chunk(1:2, 1:n, :), 2*n*3, MPI_REAL, dest, 3, MPI_COMM_WORLD, request3, ierr)
         
         dest = mod(my_id+1, width) + (my_id/width)*width !send right halo
-        call mpi_isend(tend_chunk(m-1:m, 1:n, :), 2*n, MPI_REAL, dest, 4, MPI_COMM_WORLD, request4, ierr)
+        call mpi_isend(tend_chunk(m-1:m, 1:n, :), 2*n*3, MPI_REAL, dest, 4, MPI_COMM_WORLD, request4, ierr)
         
         !recv top halo
         source = mod(my_id, width) + mod((my_id/width + 1), height)*width
-        call mpi_recv(qchunk4(3:m+2, n+3:n+4, :), 2*m, MPI_REAL, source, 1, MPI_COMM_WORLD, status, ierr)
+        call mpi_recv(tmp1, 2*m*3, MPI_REAL, source, 1, MPI_COMM_WORLD, status, ierr)
+        qchunk4(3:m+2, n+3:n+4, :) = tmp1
         !recv bottom halo
         source = mod(my_id, width) + mod((my_id/width - 1) + height, height)*width
-        call mpi_recv(qchunk4(3:m+2, 1:2, :), 2*m, MPI_REAL, source, 2, MPI_COMM_WORLD, status, ierr)
+        call mpi_recv(tmp1, 2*m*3, MPI_REAL, source, 2, MPI_COMM_WORLD, status, ierr)
+        qchunk4(3:m+2, 1:2, :) = tmp1
         !recv left halo
         source = mod(my_id-1 + width, width) + (my_id/width)*width
-        call mpi_recv(qchunk4(1:2, 3:n+2, :), 2*n, MPI_REAL, source, 3, MPI_COMM_WORLD, status, ierr)
+        call mpi_recv(tmp2, 2*n*3, MPI_REAL, source, 3, MPI_COMM_WORLD, status, ierr)
+        qchunk4(1:2, 3:n+2, :) = tmp2
         !recv right halo
         source = mod(my_id+1, width) + (my_id/width)*width
-        call mpi_recv(qchunk4(m+3:m+4, 3:n+2, :), 2*n, MPI_REAL, source, 4, MPI_COMM_WORLD, status, ierr)
-        qchunk4(3:m+2, 3:n+2, :) = tend_chunk(:,:,:)
-        qchunk4 = qchunk4*dt
-        print *, 'last'
+        call mpi_recv(tmp2, 2*n*3, MPI_REAL, source, 4, MPI_COMM_WORLD, status, ierr)
+        qchunk4(m+3:m+4, 3:n+2, :) = tmp2
         call mpi_wait(request1, status, ierr)
         call mpi_wait(request2, status, ierr)
         call mpi_wait(request3, status, ierr)
         call mpi_wait(request4, status, ierr)
-        print *, 'D'
-		!s_chunk = s_chunk + (qchunk1 + 2.0*qchunk2 + 2.0*qchunk3 + qchunk4)/6.0
+        qchunk4(3:m+2, 3:n+2, :) = tend_chunk(:,:,:)
+        qchunk4 = qchunk4*dt
+        print *, 'last'
+        
+        
+		s_chunk = s_chunk + (qchunk1 + 2.0*qchunk2 + 2.0*qchunk3 + qchunk4)/6.0
         !add and such to get next state(chunk)
-                
+        print *, 'D'    
         
     end subroutine calculate_RK4
     
