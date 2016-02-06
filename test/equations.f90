@@ -6,11 +6,11 @@ module equations
     implicit none    
     private
     integer :: i, j, im, ip, jm, jp 
-    real :: dx = 100 ! dx and dy are required for the numerical differentiation I used to get the divergences/gradients
-    real :: dy= 100 ! for arbitrary dx, step_size should be about 1/10-1/5 of dx to yield results that don't blow up. 
+    real, public :: dx ! dx and dy are required for the numerical differentiation I used to get the divergences/gradients
+    real, public :: dy ! for arbitrary dx, step_size should be about 1/10-1/5 of dx to yield results that don't blow up. 
     
     public :: get_system_size, set_initial_state, f_chunk, disassemble_state, reassemble_tend, calculate_RK4
-    integer, parameter, public :: matSize = 100 !set the dimensions of the grid of fluid. Interestingly, it seg faults for 400+
+    integer, public :: matSize  !set the dimensions of the grid of fluid. Interestingly, it seg faults for 400+
     integer, public :: arrSize, my_id, num_procs, ierr
     real, public :: dt
     integer :: count = 0

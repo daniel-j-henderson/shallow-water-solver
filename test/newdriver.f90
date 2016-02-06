@@ -13,11 +13,16 @@ program ode_solver
     real, dimension(:,:,:), allocatable :: s_chunk, tend_chunk
     integer :: num, system_size, i, j, m, n, xnum, ynum, ix, jy
     integer, dimension(MPI_STATUS_SIZE) :: status
-    real :: time=0, start, finish
+    real :: time=0, start, start1, finish
+    namelist /parameters/ dt, num, matSize, dx, dy
     call mpi_init(ierr)
     call mpi_comm_rank(MPI_COMM_WORLD, my_id, ierr)
     call mpi_comm_size(MPI_COMM_WORLD, num_procs, ierr)
     call cpu_time(start)
+    call cpu_time(start1)
+    open(41,file='namelist.input') 
+    read(41,parameters)
+    print *, dt, num, matSize, dx, dy
     if (num_procs == 1) then !Just to get started, I figured I'd just deal with m and n for specific cases and handle general number of processes after I get that working.
         m = matSize
         n = matSize
@@ -39,13 +44,7 @@ program ode_solver
     end if
     call observer_init()    
     if (my_id == 0) then
-        print *, "How many steps through time?"
-        !read(*,*) num
     
-        print *, "How big is the step size?"
-        !read(*,*) dt
-        num = 1000
-        dt = 10
         system_size = get_system_size()
         write (*,*) 'The system size is:', system_size
         allocate(state(system_size))   
@@ -113,6 +112,7 @@ program ode_solver
     end if
     call cpu_time(finish)
     write (*,*) 'Last chunk takes ', finish - start, ' time on thread', my_id
+    write (*,*) 'While thing takes ',finish - start1, 'time on thread', my_id
     call mpi_finalize(ierr)    
     !clean up all threads here
     

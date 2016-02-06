@@ -1,0 +1,7 @@
+&parameters
+	dt=10
+	num=1000
+	matSize=100
+	dx = 100 ! for arbitrary dx, step_size should be about 1/10-1/5 of dx to yield results that don't blow up. 
+	dy = 100
+/
