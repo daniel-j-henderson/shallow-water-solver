@@ -36,34 +36,36 @@ program ode_solver
         write (*,*) "Invalid number of threads, stopping all processes"
         stop
     end if
-    
+    call observer_init()    
     if (my_id == 0) then
         print *, "How many steps through time?"
         !read(*,*) num
     
         print *, "How big is the step size?"
         !read(*,*) dt
-        num = 100
+        num = 1000
         dt = 10
         system_size = get_system_size()
         write (*,*) 'The system size is:', system_size
         allocate(state(system_size))   
     
         call set_initial_state(state)
-    
-        call observer_init()
-        call observer_write(state)
+        print *, 'enter observer init()'
+        !call observer_init()
+        print *, 'exit init(), enter observer_write()'
+    !    call observer_write(state)
+        print *, 'exit write()'
         call mpi_bcast(system_size, 1, MPI_INT, 0, MPI_COMM_WORLD, ierr)
     else 
         call mpi_bcast(system_size, 1, MPI_INT, 0, MPI_COMM_WORLD, ierr)
-        allocate(state(system_size))
+        !allocate(state(system_size))
     end if
         allocate(s_chunk(m+4, n+4, 3), tend_chunk(m, n, 3))
         
     call mpi_bcast(num, 1, MPI_INT, 0, MPI_COMM_WORLD, ierr)
     call mpi_bcast(dt, 1, MPI_REAL, 0, MPI_COMM_WORLD, ierr)
     !call mpi_bcast(system_size, 1, MPI_INT, 0, MPI_COMM_WORLD, ierr)
-    call mpi_bcast(state, system_size, MPI_REAL, 0, MPI_COMM_WORLD, ierr)
+    !call mpi_bcast(state, system_size, MPI_REAL, 0, MPI_COMM_WORLD, ierr)
     
     !extract initial state chunk sans halo
     if (my_id == 0) then
@@ -76,12 +78,12 @@ program ode_solver
     else
     	call mpi_recv(s_chunk(:,:,:), (n+4)*(m+4)*3, MPI_REAL, 0, 1, MPI_COMM_WORLD, status, ierr)
     end if
-    
+     
     xnum = matSize / m
     ynum = matSize / n
     ix = mod(my_id, xnum)
     jy = my_id / xnum
-    
+    call observer_write_chunk(s_chunk(3:m+2, 3:n+2, :), ix, jy)
     do i=1, num
     
         call calculate_RK4(s_chunk, tend_chunk)
@@ -91,9 +93,10 @@ program ode_solver
         
     end do
     print *, 'FINALLY FINISHED'
+    call observer_finalize()
     if (my_id == 0) then
     
-        call observer_finalize()
+        !call observer_finalize()
     
         !deallocate(state)
         !deallocate(tendency)

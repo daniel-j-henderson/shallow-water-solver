@@ -1,5 +1,5 @@
 FC = mpif90
-FFLAGS = # -g -check all -traceback -O3
+FFLAGS =  #-g -check all -traceback -O3
 LDFLAGS = 
 
 all: solver_parallel

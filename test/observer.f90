@@ -13,6 +13,7 @@ module observer
 	use netcdf
 	use equations
 	implicit none
+    include 'mpif.h'
 
     private
     
@@ -46,7 +47,10 @@ module observer
 
         implicit none
         integer :: ierr
+        print *, 'calling create'
+        print *, ior(NF90_NETCDF4, NF90_MPIIO)
         ierr = nf90_create(filename, ior(NF90_NETCDF4, NF90_MPIIO), ncid, comm=MPI_COMM_WORLD, info=MPI_INFO_NULL)
+        print *, 'made it past create'
     	if (ierr /= NF90_NOERR) then
         	write(0,*) '*********************************************************************************'
         	write(0,*) 'Error creating NetCDF file '//filename
@@ -54,7 +58,6 @@ module observer
         	write(0,*) '*********************************************************************************'
         	stop
     	end if
-    	
     	ierr = nf90_def_dim(ncid, 'timeDim', NF90_UNLIMITED, tdimID)
     	if (ierr /= NF90_NOERR) then
      	   write(0,*) '*********************************************************************************'
@@ -118,7 +121,33 @@ module observer
    	       write(0,*) '*********************************************************************************'
            stop
         end if
+        
+        ierr = nf90_var_par_access(ncid, hvarID, NF90_COLLECTIVE)
+        if (ierr /= NF90_NOERR) then
+           write(0,*)'*********************************************************************************'
+           write(0,*) 'Error doing par access thing '//filename
+           write(0,*) 'ierr = ', ierr
+           write(0,*)'*********************************************************************************'
+           stop
+        end if
 
+        ierr = nf90_var_par_access(ncid, uvarID, NF90_COLLECTIVE)
+        if (ierr /= NF90_NOERR) then
+           write(0,*)'*********************************************************************************'
+           write(0,*) 'Error doing par access thing '//filename
+           write(0,*) 'ierr = ', ierr
+           write(0,*)'*********************************************************************************'
+           stop
+        end if
+
+        ierr = nf90_var_par_access(ncid, vvarID, NF90_COLLECTIVE)
+        if (ierr /= NF90_NOERR) then
+           write(0,*)'*********************************************************************************'
+           write(0,*) 'Error doing par access thing '//filename
+           write(0,*) 'ierr = ', ierr
+           write(0,*)'*********************************************************************************'
+           stop
+        end if
     end subroutine observer_init
 
 
@@ -174,32 +203,32 @@ module observer
            stop
         end if
         
-        ierr = nf90_var_par_access(ncid, hvarID, NF90_COLLECTIVE)
-        if (ierr /= NF90_NOERR) then
- 	       write(0,*) '*********************************************************************************'
- 	       write(0,*) 'Error doing par access thing '//filename
- 	       write(0,*) 'ierr = ', ierr
-   	       write(0,*) '*********************************************************************************'
-           stop
-        end if
-        
-        ierr = nf90_var_par_access(ncid, uvarID, NF90_COLLECTIVE)
-        if (ierr /= NF90_NOERR) then
- 	       write(0,*) '*********************************************************************************'
- 	       write(0,*) 'Error doing par access thing '//filename
- 	       write(0,*) 'ierr = ', ierr
-   	       write(0,*) '*********************************************************************************'
-           stop
-        end if
-        
-        ierr = nf90_var_par_access(ncid, vvarID, NF90_COLLECTIVE)
-        if (ierr /= NF90_NOERR) then
- 	       write(0,*) '*********************************************************************************'
- 	       write(0,*) 'Error doing par access thing '//filename
- 	       write(0,*) 'ierr = ', ierr
-   	       write(0,*) '*********************************************************************************'
-           stop
-        end if
+!        ierr = nf90_var_par_access(ncid, hvarID, NF90_COLLECTIVE)
+!        if (ierr /= NF90_NOERR) then
+! 	       write(0,*) '*********************************************************************************'
+! 	       write(0,*) 'Error doing par access thing '//filename
+! 	       write(0,*) 'ierr = ', ierr
+!   	       write(0,*) '*********************************************************************************'
+!           stop
+!        end if
+!        
+!        ierr = nf90_var_par_access(ncid, uvarID, NF90_COLLECTIVE)
+!        if (ierr /= NF90_NOERR) then
+! 	       write(0,*) '*********************************************************************************'
+! 	       write(0,*) 'Error doing par access thing '//filename
+! 	       write(0,*) 'ierr = ', ierr
+!   	       write(0,*) '*********************************************************************************'
+!           stop
+!        end if
+!        
+!        ierr = nf90_var_par_access(ncid, vvarID, NF90_COLLECTIVE)
+!        if (ierr /= NF90_NOERR) then
+! 	       write(0,*) '*********************************************************************************'
+! 	       write(0,*) 'Error doing par access thing '//filename
+! 	       write(0,*) 'ierr = ', ierr
+!   	       write(0,*) '*********************************************************************************'
+!           stop
+!        end if
         
         cnt=cnt+1 ! j keeps track of the next spot in each variable to write to
 
@@ -221,18 +250,17 @@ module observer
     subroutine observer_write_chunk(s, i, j)
     	
     	implicit none
-        real, dimension(:,:,:), intent(in) :: s
+        real, dimension(:,:,:), intent(inout) :: s
         integer, intent(in) :: i, j
     	integer :: ierr, m, n
     	integer, dimension(3) :: stuff
     	
     	write (*,*) 'my i = ',i ,'and j = ',j
-    	
     	stuff = shape(s)
     	m = stuff(1)
     	n = stuff(2)
 		
-		ierr = nf90_put_var(ncid, hvarID, s(:,:,1), (/i*m+1, i*n+1, cnt/), (/m, n, 1/))
+		ierr = nf90_put_var(ncid, hvarID, s(:,:,1), (/i*m+1, j*n+1, cnt/), (/m, n, 1/))
 	    if (ierr /= NF90_NOERR) then
  	       write(0,*) '*********************************************************************************'
  	       write(0,*) 'Error putting h-chunk in file '//filename
@@ -241,7 +269,7 @@ module observer
            stop
         end if
 
-        ierr = nf90_put_var(ncid, uvarID, s(:,:,2), (/i*m+1, i*n+1, cnt/), (/m, n, 1/))
+        ierr = nf90_put_var(ncid, uvarID, s(:,:,2), (/i*m+1, j*n+1, cnt/), (/m, n, 1/))
 	    if (ierr /= NF90_NOERR) then
  	       write(0,*) '*********************************************************************************'
  	       write(0,*) 'Error putting u-chunk in file '//filename
@@ -250,7 +278,7 @@ module observer
            stop
         end if
         
-        ierr = nf90_put_var(ncid, vvarID, s(:,:,3), (/i*m+1, i*n+1, cnt/), (/m, n, 1/))
+        ierr = nf90_put_var(ncid, vvarID, s(:,:,3), (/i*m+1, j*n+1, cnt/), (/m, n, 1/))
 	    if (ierr /= NF90_NOERR) then
  	       write(0,*) '*********************************************************************************'
  	       write(0,*) 'Error putting v-chunk in file '//filename
