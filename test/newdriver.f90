@@ -13,10 +13,11 @@ program ode_solver
     real, dimension(:,:,:), allocatable :: s_chunk, tend_chunk
     integer :: num, system_size, i, j, m, n, xnum, ynum, ix, jy
     integer, dimension(MPI_STATUS_SIZE) :: status
-    real :: time=0
+    real :: time=0, start, finish
     call mpi_init(ierr)
     call mpi_comm_rank(MPI_COMM_WORLD, my_id, ierr)
     call mpi_comm_size(MPI_COMM_WORLD, num_procs, ierr)
+    call cpu_time(start)
     if (num_procs == 1) then !Just to get started, I figured I'd just deal with m and n for specific cases and handle general number of processes after I get that working.
         m = matSize
         n = matSize
@@ -78,12 +79,17 @@ program ode_solver
     else
     	call mpi_recv(s_chunk(:,:,:), (n+4)*(m+4)*3, MPI_REAL, 0, 1, MPI_COMM_WORLD, status, ierr)
     end if
-     
+    call cpu_time(finish)
+    write (*,*) 'First chunk takes ', finish - start, ' time on thread', my_id
     xnum = matSize / m
     ynum = matSize / n
     ix = mod(my_id, xnum)
     jy = my_id / xnum
+    call cpu_time(start)
     call observer_write_chunk(s_chunk(3:m+2, 3:n+2, :), ix, jy)
+    call cpu_time(finish)
+    write (*,*) 'First write chunk takes ', finish - start, ' time on thread', my_id
+    call cpu_time(start)
     do i=1, num
     
         call calculate_RK4(s_chunk, tend_chunk)
@@ -105,6 +111,8 @@ program ode_solver
     else
     	!deallocate some stuff
     end if
+    call cpu_time(finish)
+    write (*,*) 'Last chunk takes ', finish - start, ' time on thread', my_id
     call mpi_finalize(ierr)    
     !clean up all threads here
     

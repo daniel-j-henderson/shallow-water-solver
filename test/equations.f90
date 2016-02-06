@@ -45,7 +45,7 @@ module equations
 		integer :: m, n, dest, source, width, height, counter=0
 		integer :: request1, request2, request3, request4
 		integer(kind=8) :: status
-        real :: start, finish
+        real(kind=8) :: start, finish
         call cpu_time(start)
         counter = counter + 1
         stuff = shape(s_chunk)
